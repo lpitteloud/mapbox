@@ -37,8 +37,6 @@
         zoom: 12
     });
 
-    let waypoints = [];
-
     function fetchSuggestions(query, callback) {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${mapboxgl.accessToken}`;
         fetch(url)
@@ -127,6 +125,7 @@
             .then(response => response.json())
             .then(data => {
                 const route = data.routes[0].geometry.coordinates;
+
                 const geojson = {
                     type: 'Feature',
                     properties: {},
@@ -157,6 +156,16 @@
                         }
                     });
                 }
+
+                const bounds = route.reduce((bounds, coord) => {
+                    return bounds.extend(coord);
+                }, new mapboxgl.LngLatBounds(route[0], route[0]));
+
+                map.fitBounds(bounds, {
+                    padding: 50,
+                    maxZoom: 15,
+                    duration: 1000
+                });
             });
     });
 </script>
