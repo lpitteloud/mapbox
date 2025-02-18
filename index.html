@@ -8,14 +8,19 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.10.0/mapbox-gl.css" rel="stylesheet" />
     <style>
         body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 50px; bottom: 0; width: 100%; }
+        #map { position: absolute; top: 150px; bottom: 0; width: 100%; }
         #controls { position: absolute; top: 10px; left: 10px; z-index: 1; background: white; padding: 10px; border-radius: 5px; }
+        .suggestions { margin-top: 5px; border: 1px solid #ccc; max-height: 100px; overflow-y: auto; }
+        .suggestion { padding: 5px; cursor: pointer; }
+        .suggestion:hover { background-color: #f0f0f0; }
     </style>
 </head>
 <body>
 <div id="controls">
     <input id="start" type="text" placeholder="Adresse de départ" />
+    <div id="start-suggestions" class="suggestions"></div>
     <input id="end" type="text" placeholder="Adresse d'arrivée" />
+    <div id="end-suggestions" class="suggestions"></div>
     <button id="swap">Intervertir</button>
     <button id="add-waypoint">Ajouter une étape</button>
     <button id="calculate">Calculer l'itinéraire</button>
@@ -23,7 +28,7 @@
 </div>
 <div id="map"></div>
 <script>
-    mapboxgl.accessToken = 'pk.eyJ1IjoibHBpdHRlbG91ZCIsImEiOiJjbTZqNjdoeG0wMTllMmpzNTN4cmluMG0wIn0.dPsBi4HgLmQxPmjLQnRMVw';
+    mapboxgl.accessToken = 'YOUR_TOKEN_MAPBOX';
 
     const map = new mapboxgl.Map({
         container: 'map',
@@ -34,6 +39,42 @@
 
     let waypoints = [];
 
+    function fetchSuggestions(query, callback) {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${mapboxgl.accessToken}`;
+        fetch(url)
+            .then(response => response.json())
+            .then(data => callback(data.features));
+    }
+
+    function setupSuggestions(inputId, suggestionsId) {
+        const input = document.getElementById(inputId);
+        const suggestionsContainer = document.getElementById(suggestionsId);
+
+        input.addEventListener('input', () => {
+            const query = input.value;
+            if (query.length > 2) {
+                fetchSuggestions(query, (suggestions) => {
+                    suggestionsContainer.innerHTML = '';
+                    suggestions.forEach(suggestion => {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion';
+                        div.textContent = suggestion.place_name;
+                        div.addEventListener('click', () => {
+                            input.value = suggestion.place_name;
+                            suggestionsContainer.innerHTML = '';
+                        });
+                        suggestionsContainer.appendChild(div);
+                    });
+                });
+            } else {
+                suggestionsContainer.innerHTML = '';
+            }
+        });
+    }
+
+    setupSuggestions('start', 'start-suggestions');
+    setupSuggestions('end', 'end-suggestions');
+
     document.getElementById('swap').addEventListener('click', () => {
         const start = document.getElementById('start').value;
         const end = document.getElementById('end').value;
@@ -42,16 +83,23 @@
     });
 
     document.getElementById('add-waypoint').addEventListener('click', () => {
+        const waypointContainer = document.createElement('div');
         const waypointInput = document.createElement('input');
         waypointInput.type = 'text';
         waypointInput.placeholder = 'Adresse de l\'étape';
-        document.getElementById('waypoints').appendChild(waypointInput);
+        const waypointSuggestions = document.createElement('div');
+        waypointSuggestions.className = 'suggestions';
+        waypointContainer.appendChild(waypointInput);
+        waypointContainer.appendChild(waypointSuggestions);
+        document.getElementById('waypoints').appendChild(waypointContainer);
+
+        setupSuggestions(waypointInput, waypointSuggestions);
     });
 
     document.getElementById('calculate').addEventListener('click', () => {
         const start = document.getElementById('start').value;
         const end = document.getElementById('end').value;
-        waypoints = Array.from(document.getElementById('waypoints').children).map(input => input.value).filter(wp => wp);
+        waypoints = Array.from(document.getElementById('waypoints').children).map(container => container.firstChild.value).filter(wp => wp);
 
         const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start};${end}?waypoints=${waypoints.join(';')}&geometries=geojson&access_token=${mapboxgl.accessToken}`;
 
