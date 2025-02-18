@@ -101,7 +101,11 @@
         const end = document.getElementById('end').value;
         waypoints = Array.from(document.getElementById('waypoints').children).map(container => container.firstChild.value).filter(wp => wp);
 
-        const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start};${end}?waypoints=${waypoints.join(';')}&geometries=geojson&access_token=${mapboxgl.accessToken}`;
+        let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start};${end}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+
+        if (waypoints.length > 0) {
+            url += `&waypoints=${waypoints.map(encodeURIComponent).join(';')}`;
+        }
 
         fetch(url)
             .then(response => response.json())
