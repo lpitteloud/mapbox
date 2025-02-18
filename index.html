@@ -72,6 +72,18 @@
         });
     }
 
+    async function getCoordinates(address) {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${mapboxgl.accessToken}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.features.length > 0) {
+            const [longitude, latitude] = data.features[0].center;
+            return `${longitude},${latitude}`;
+        } else {
+            throw new Error('Adresse non trouvée');
+        }
+    }
+
     setupSuggestions('start', 'start-suggestions');
     setupSuggestions('end', 'end-suggestions');
 
@@ -96,15 +108,19 @@
         setupSuggestions(waypointInput, waypointSuggestions);
     });
 
-    document.getElementById('calculate').addEventListener('click', () => {
+    document.getElementById('calculate').addEventListener('click', async () => {
         const start = document.getElementById('start').value;
         const end = document.getElementById('end').value;
-        waypoints = Array.from(document.getElementById('waypoints').children).map(container => container.firstChild.value).filter(wp => wp);
+        const waypointsElements = Array.from(document.getElementById('waypoints').children);
+        const waypoints = await Promise.all(waypointsElements.map(container => getCoordinates(container.firstChild.value)));
 
-        let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start};${end}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+        const startCoordinates = await getCoordinates(start);
+        const endCoordinates = await getCoordinates(end);
+
+        let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${startCoordinates};${endCoordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
 
         if (waypoints.length > 0) {
-            url += `&waypoints=${waypoints.map(encodeURIComponent).join(';')}`;
+            url += `&waypoints=${waypoints.join(';')}`;
         }
 
         fetch(url)
