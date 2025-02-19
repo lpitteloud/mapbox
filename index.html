@@ -107,77 +107,83 @@
     });
 
     document.getElementById('calculate').addEventListener('click', async () => {
-        const start = document.getElementById('start').value;
-        const end = document.getElementById('end').value;
-        const waypointsElements = Array.from(document.getElementById('waypoints').children);
-        const waypoints = await Promise.all(waypointsElements.map(container => getCoordinates(container.firstChild.value)));
+        try {
+            const start = document.getElementById('start').value;
+            const end = document.getElementById('end').value;
+            const waypointsElements = Array.from(document.getElementById('waypoints').children);
+            const waypoints = await Promise.all(waypointsElements.map(container => getCoordinates(container.firstChild.value)));
 
-        const startCoordinates = await getCoordinates(start);
-        const endCoordinates = await getCoordinates(end);
+            const startCoordinates = await getCoordinates(start);
+            const endCoordinates = await getCoordinates(end);
 
-        let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${startCoordinates};${endCoordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+            let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${startCoordinates};${endCoordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
 
-        if (waypoints.length > 0) {
-            url += `&waypoints=${waypoints.join(';')}`;
-        }
+            if (waypoints.length > 0) {
+                console.log(waypoints);
+                url += `&waypoints=${waypoints.join(';')}`;
+            }
 
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                const route = data.routes[0].geometry.coordinates;
-                const distance = data.routes[0].distance / 1000;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const route = data.routes[0].geometry.coordinates;
+                    const distance = data.routes[0].distance / 1000;
 
-                const geojson = {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: route
-                    }
-                };
-
-                if (map.getSource('route')) {
-                    map.getSource('route').setData(geojson);
-                } else {
-                    map.addLayer({
-                        id: 'route',
-                        type: 'line',
-                        source: {
-                            type: 'geojson',
-                            data: geojson
-                        },
-                        layout: {
-                            'line-join': 'round',
-                            'line-cap': 'round'
-                        },
-                        paint: {
-                            'line-color': '#3887be',
-                            'line-width': 5,
-                            'line-opacity': 0.75
+                    const geojson = {
+                        type: 'Feature',
+                        properties: {},
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: route
                         }
+                    };
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(geojson);
+                    } else {
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: {
+                                type: 'geojson',
+                                data: geojson
+                            },
+                            layout: {
+                                'line-join': 'round',
+                                'line-cap': 'round'
+                            },
+                            paint: {
+                                'line-color': '#3887be',
+                                'line-width': 5,
+                                'line-opacity': 0.75
+                            }
+                        });
+                    }
+
+                    const waypointsCoords = [startCoordinates, ...waypoints, endCoordinates].map(coord => coord.split(',').map(Number));
+                    waypointsCoords.forEach((coord, index) => {
+                        new mapboxgl.Marker()
+                            .setLngLat(coord)
+                            .setPopup(new mapboxgl.Popup().setText(`Waypoint ${index + 1}`))
+                            .addTo(map);
                     });
-                }
 
-                const waypointsCoords = [startCoordinates, ...waypoints, endCoordinates].map(coord => coord.split(',').map(Number));
-                waypointsCoords.forEach((coord, index) => {
-                    new mapboxgl.Marker()
-                        .setLngLat(coord)
-                        .setPopup(new mapboxgl.Popup().setText(`Waypoint ${index + 1}`))
-                        .addTo(map);
+                    const bounds = route.reduce((bounds, coord) => {
+                        return bounds.extend(coord);
+                    }, new mapboxgl.LngLatBounds(route[0], route[0]));
+
+                    map.fitBounds(bounds, {
+                        padding: 50,
+                        maxZoom: 15,
+                        duration: 1000
+                    });
+
+                    document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
                 });
-
-                const bounds = route.reduce((bounds, coord) => {
-                    return bounds.extend(coord);
-                }, new mapboxgl.LngLatBounds(route[0], route[0]));
-
-                map.fitBounds(bounds, {
-                    padding: 50,
-                    maxZoom: 15,
-                    duration: 1000
-                });
-
-                document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
-            });
+        } catch (error) {
+            console.log(error);
+            alert('Erreur lors du calcul');
+        }
     });
 </script>
 </body>
