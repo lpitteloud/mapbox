@@ -17,14 +17,17 @@
 </head>
 <body>
 <div id="controls">
-    <input id="start" type="text" placeholder="Adresse de départ" />
-    <div id="start-suggestions" class="suggestions"></div>
-    <input id="end" type="text" placeholder="Adresse d'arrivée" />
-    <div id="end-suggestions" class="suggestions"></div>
-    <button id="swap">Intervertir</button>
-    <button id="add-waypoint">Ajouter une étape</button>
-    <button id="calculate">Calculer l'itinéraire</button>
-    <div id="waypoints"></div>
+    <div id="controls">
+        <label for="start">Départ:</label><input id="start" type="text" placeholder="Adresse de départ" />
+        <div id="start-suggestions" class="suggestions"></div>
+        <label for="end">Arrivée:</label><input id="end" type="text" placeholder="Adresse d'arrivée" />
+        <div id="end-suggestions" class="suggestions"></div>
+        <button id="swap">Intervertir</button>
+        <button id="add-waypoint">Ajouter une étape</button>
+        <button id="calculate">Calculer l'itinéraire</button>
+        <div id="waypoints"></div>
+        <div id="distance"></div>
+    </div>
 </div>
 <div id="map"></div>
 <script>
@@ -44,12 +47,9 @@
             .then(data => callback(data.features));
     }
 
-    function setupSuggestions(inputId, suggestionsId) {
-        const input = document.getElementById(inputId);
-        const suggestionsContainer = document.getElementById(suggestionsId);
-
-        input.addEventListener('input', () => {
-            const query = input.value;
+    function setupSuggestions(inputElement, suggestionsContainer) {
+        inputElement.addEventListener('input', () => {
+            const query = inputElement.value;
             if (query.length > 2) {
                 fetchSuggestions(query, (suggestions) => {
                     suggestionsContainer.innerHTML = '';
@@ -58,7 +58,7 @@
                         div.className = 'suggestion';
                         div.textContent = suggestion.place_name;
                         div.addEventListener('click', () => {
-                            input.value = suggestion.place_name;
+                            inputElement.value = suggestion.place_name;
                             suggestionsContainer.innerHTML = '';
                         });
                         suggestionsContainer.appendChild(div);
@@ -82,8 +82,8 @@
         }
     }
 
-    setupSuggestions('start', 'start-suggestions');
-    setupSuggestions('end', 'end-suggestions');
+    setupSuggestions(document.getElementById('start'), document.getElementById('start-suggestions'));
+    setupSuggestions(document.getElementById('end'), document.getElementById('end-suggestions'));
 
     document.getElementById('swap').addEventListener('click', () => {
         const start = document.getElementById('start').value;
@@ -125,6 +125,7 @@
             .then(response => response.json())
             .then(data => {
                 const route = data.routes[0].geometry.coordinates;
+                const distance = data.routes[0].distance / 1000;
 
                 const geojson = {
                     type: 'Feature',
@@ -157,6 +158,14 @@
                     });
                 }
 
+                const waypointsCoords = [startCoordinates, ...waypoints, endCoordinates].map(coord => coord.split(',').map(Number));
+                waypointsCoords.forEach((coord, index) => {
+                    new mapboxgl.Marker()
+                        .setLngLat(coord)
+                        .setPopup(new mapboxgl.Popup().setText(`Waypoint ${index + 1}`))
+                        .addTo(map);
+                });
+
                 const bounds = route.reduce((bounds, coord) => {
                     return bounds.extend(coord);
                 }, new mapboxgl.LngLatBounds(route[0], route[0]));
@@ -166,6 +175,8 @@
                     maxZoom: 15,
                     duration: 1000
                 });
+
+                document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} km`;
             });
     });
 </script>
