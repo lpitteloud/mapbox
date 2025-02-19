@@ -116,12 +116,15 @@
             const startCoordinates = await getCoordinates(start);
             const endCoordinates = await getCoordinates(end);
 
-            let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${startCoordinates};${endCoordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+            let routeCoordinates = startCoordinates;
 
             if (waypoints.length > 0) {
-                console.log(waypoints);
-                url += `&waypoints=${waypoints.join(';')}`;
+                routeCoordinates+= `;${waypoints.join(';')}`;
             }
+
+            routeCoordinates+= `;${endCoordinates}`;
+
+            let url = `https://api.mapbox.com/directions/v5/mapbox/driving/${routeCoordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
 
             fetch(url)
                 .then(response => response.json())
